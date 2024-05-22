@@ -1,5 +1,8 @@
 # zig-wdk-example
 
+> [!CAUTION]
+> This example **wont** compile, you'll have to be able to edit some of Zig's cache in order to be able to use it!
+
 This is an experiment to build a Windows Driver (with the WDK) in Zig.
 
 There are some rough edges, e.g. that the `wdm.h` and `ntifs.h` aren't perfectly yet translated to Zig [see Issue #1499](https://github.com/ziglang/zig/issues/1499).
