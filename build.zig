@@ -30,17 +30,28 @@ fn checkForEnvVariable(comptime path: []const u8, alloc: std.mem.Allocator, comp
 
 fn addSystemIncludes(
     self: *std.Build.Step.TranslateC,
-    vs: []const u8,
+    vs_includes: *std.mem.SplitIterator(u8, .scalar),
     km: []const u8,
     shared: []const u8,
     ucrt: []const u8,
     crt_path: []const u8,
 ) void {
-    self.addIncludeDir(vs);
+    while (vs_includes.next()) |vs| {
+        self.addIncludeDir(vs);
+    }
+
     self.addIncludeDir(km);
     self.addIncludeDir(shared);
     self.addIncludeDir(ucrt);
     self.addIncludeDir(crt_path);
+}
+
+fn addDefaultVars(c: *std.Build.Step.TranslateC) void {
+    c.defineCMacro("_AMD64_", "1");
+    c.defineCMacro("_KERNEL_MODE", "1");
+    c.defineCMacro("POOL_NX_OPTIN", "1");
+    c.defineCMacro("POOL_ZERO_DOWN_LEVEL_SUPPORT", "1");
+    c.defineCMacro("_MSC_VER", "1300");
 }
 
 fn useTranslateC(
@@ -54,7 +65,7 @@ fn useTranslateC(
     ntstrsafe_path: []const u8,
     ntimage_path: []const u8,
     fltkernel_path: []const u8,
-    vs: []const u8,
+    vs_includes: *std.mem.SplitIterator(u8, .scalar),
     km: []const u8,
     shared: []const u8,
     ucrt: []const u8,
@@ -66,7 +77,6 @@ fn useTranslateC(
         .optimize = optimize,
         .use_clang = false,
     });
-    addSystemIncludes(ntifs, vs, km, shared, ucrt, crt_path);
 
     const ntddk = b.addTranslateC(.{
         .root_source_file = std.Build.LazyPath{ .cwd_relative = ntddk_path },
@@ -74,7 +84,6 @@ fn useTranslateC(
         .optimize = optimize,
         .use_clang = false,
     });
-    addSystemIncludes(ntddk, vs, km, shared, ucrt, crt_path);
 
     const wdm = b.addTranslateC(.{
         .root_source_file = std.Build.LazyPath{ .cwd_relative = wdm_path },
@@ -82,7 +91,6 @@ fn useTranslateC(
         .optimize = optimize,
         .use_clang = false,
     });
-    addSystemIncludes(wdm, vs, km, shared, ucrt, crt_path);
 
     const ntstrsafe = b.addTranslateC(.{
         .root_source_file = std.Build.LazyPath{ .cwd_relative = ntstrsafe_path },
@@ -90,7 +98,6 @@ fn useTranslateC(
         .optimize = optimize,
         .use_clang = false,
     });
-    addSystemIncludes(ntstrsafe, vs, km, shared, ucrt, crt_path);
 
     const ntimage = b.addTranslateC(.{
         .root_source_file = std.Build.LazyPath{ .cwd_relative = ntimage_path },
@@ -98,7 +105,6 @@ fn useTranslateC(
         .optimize = optimize,
         .use_clang = false,
     });
-    addSystemIncludes(ntimage, vs, km, shared, ucrt, crt_path);
 
     const fltkernel = b.addTranslateC(.{
         .root_source_file = std.Build.LazyPath{ .cwd_relative = fltkernel_path },
@@ -106,7 +112,21 @@ fn useTranslateC(
         .optimize = optimize,
         .use_clang = false,
     });
-    addSystemIncludes(fltkernel, vs, km, shared, ucrt, crt_path);
+    addSystemIncludes(ntifs, vs_includes, km, shared, ucrt, crt_path);
+    addSystemIncludes(ntddk, vs_includes, km, shared, ucrt, crt_path);
+    addSystemIncludes(wdm, vs_includes, km, shared, ucrt, crt_path);
+    addSystemIncludes(ntstrsafe, vs_includes, km, shared, ucrt, crt_path);
+    addSystemIncludes(ntimage, vs_includes, km, shared, ucrt, crt_path);
+    addSystemIncludes(ntimage, vs_includes, km, shared, ucrt, crt_path);
+    addSystemIncludes(fltkernel, vs_includes, km, shared, ucrt, crt_path);
+
+    addDefaultVars(ntifs);
+    addDefaultVars(ntddk);
+    addDefaultVars(wdm);
+    addDefaultVars(ntstrsafe);
+    addDefaultVars(ntimage);
+    addDefaultVars(ntimage);
+    addDefaultVars(fltkernel);
 
     obj.root_module.addImport("ntifs", ntifs.createModule());
     obj.root_module.addImport("ntddk", ntddk.createModule());
@@ -128,24 +148,19 @@ pub fn build(b: *std.Build) !void {
     const alloc = arena.allocator();
 
     const wdk = checkForEnvVariable("WDK_PATH", alloc, "/mnt/c/Program Files (x86)/Windows Kits/10/Include/", true) catch "/mnt/c/Program Files (x86)/Windows Kits/10/Include/";
-    const vs = checkForEnvVariable("VS_INCLUDE", alloc, "/mnt/c/Program Files/Microsoft Visual Studio/2022/Preview/VC/Tools/MSVC/14.42.34226/include", true) catch "/mnt/c/Program Files/Microsoft Visual Studio/2022/Preview/VC/Tools/MSVC/14.42.34226/include";
-    const version = checkForEnvVariable("WDK_VERSION", alloc, "10.0.22621.0", false) catch "10.0.22621.0";
-    const other_version = checkForEnvVariable("WDK_SHARED_VERSION", alloc, "10.0.22000.0", false) catch "10.0.22000.0";
-    const lib_path_base = checkForEnvVariable("WDK_LIB_PATH", alloc, "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.22621.0'; '(MAKE SURE THIS IS THE WINDOWS PATH!!)", true) catch "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.22621.0";
+    const vs = checkForEnvVariable("INCLUDE", alloc, "/mnt/c/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.41.34120/include/", true) catch "/mnt/c/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.41.34120/include";
+    const version = checkForEnvVariable("WDK_VERSION", alloc, "10.0.22621.0", false) catch "10.0.26100.0";
+    const other_version = checkForEnvVariable("WindowsSDKVersion", alloc, "10.0.22000.0", false) catch "10.0.26100.0";
+    const lib_path_base = checkForEnvVariable("WDK_LIB_PATH", alloc, "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0'; '(MAKE SURE THIS IS THE WINDOWS PATH!!)", true) catch "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0";
+    var vs_includes = std.mem.splitScalar(u8, wdk, ';');
 
     const km = try std.fs.path.join(alloc, &.{ wdk, version, "km" });
     const ntifs_path = try std.fs.path.join(alloc, &.{ km, "ntifs.h" });
-    _ = ntifs_path; // autofix
     const ntddk_path = try std.fs.path.join(alloc, &.{ km, "ntddk.h" });
-    _ = ntddk_path; // autofix
     const wdm_path = try std.fs.path.join(alloc, &.{ km, "wdm.h" });
-    _ = wdm_path; // autofix
     const ntstrsafe_path = try std.fs.path.join(alloc, &.{ km, "ntstrsafe.h" });
-    _ = ntstrsafe_path; // autofix
     const ntimage_path = try std.fs.path.join(alloc, &.{ km, "ntimage.h" });
-    _ = ntimage_path; // autofix
     const fltkernel_path = try std.fs.path.join(alloc, &.{ km, "fltKernel.h" });
-    _ = fltkernel_path; // autofix
     const shared = try std.fs.path.join(alloc, &.{ wdk, other_version, "shared" });
     const ucrt = try std.fs.path.join(alloc, &.{ wdk, other_version, "ucrt" });
     const crt_path = try std.fs.path.join(alloc, &.{ km, "crt" });
@@ -157,13 +172,50 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    // useTranslateC(b, obj, target, optimize, ntifs_path, ntddk_path, wdm_path, ntstrsafe_path, ntimage_path, fltkernel_path, vs, km, shared, ucrt, crt_path);
+    // useTranslateC(
+    //     b,
+    //     obj,
+    //     target,
+    //     optimize,
+    //     ntifs_path,
+    //     ntddk_path,
+    //     wdm_path,
+    //     ntstrsafe_path,
+    //     ntimage_path,
+    //     fltkernel_path,
+    //     &vs_includes,
+    //     km,
+    //     shared,
+    //     ucrt,
+    //     crt_path,
+    // );
+    const define = b.addTranslateC(.{
+        .root_source_file = b.path("defines/defines.h"),
+        .target = target,
+        .optimize = optimize,
+        // .use_clang = false,
+    });
 
-    obj.addSystemIncludePath(.{ .cwd_relative = vs });
-    obj.addSystemIncludePath(.{ .cwd_relative = km });
-    obj.addSystemIncludePath(.{ .cwd_relative = shared });
-    obj.addSystemIncludePath(.{ .cwd_relative = ucrt });
-    obj.addSystemIncludePath(.{ .cwd_relative = crt_path });
+    log.info("path: '{s}'", .{vs});
+    log.info("path: '{s}'", .{km});
+    log.info("path: '{s}'", .{shared});
+    log.info("path: '{s}'", .{ucrt});
+
+    while (vs_includes.next()) |inc| {
+        define.addIncludeDir(inc);
+    }
+    define.addIncludeDir(km);
+    define.addIncludeDir(shared);
+    define.addIncludeDir(ucrt);
+    define.addIncludeDir(crt_path);
+    define.addIncludeDir(ntifs_path);
+    define.addIncludeDir(ntddk_path);
+    define.addIncludeDir(wdm_path);
+    define.addIncludeDir(ntstrsafe_path);
+    define.addIncludeDir(ntimage_path);
+    define.addIncludeDir(fltkernel_path);
+
+    obj.root_module.addImport("wdk", define.createModule());
 
     const install_step = b.addInstallArtifact(obj, .{
         .dest_dir = .{ .override = .{ .custom = "obj" } },
@@ -172,10 +224,6 @@ pub fn build(b: *std.Build) !void {
     const lib_path = try std.fs.path.join(alloc, &.{ lib_path_base, "km\\x64" });
     const lib = try std.fmt.allocPrint(alloc, "/LIBPATH:{s}", .{lib_path});
 
-    log.info("path: '{s}'", .{vs});
-    log.info("path: '{s}'", .{km});
-    log.info("path: '{s}'", .{shared});
-    log.info("path: '{s}'", .{ucrt});
     log.info("path: '{s}'", .{lib_path});
 
     const mk_driver = b.addSystemCommand(&.{ "mkdir", "-p", "./zig-out/driver/" });

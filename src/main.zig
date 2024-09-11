@@ -13,6 +13,7 @@ const wdk = @cImport({
     @cInclude("ntimage.h");
     @cInclude("fltkernel.h");
 });
+// const wdk = @import("wdk");
 
 pub fn driverEntry(_: wdk.PDRIVER_OBJECT, _: *const wdk.UNICODE_STRING) callconv(.C) wdk.NTSTATUS {
     const owo: *const [35:0]u8 = "OwO What's this? \nUwU *nuzzles you*";
